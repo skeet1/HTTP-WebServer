@@ -1,65 +1,32 @@
-/* ************************************************************************** */
-/*                                                                            */
-/*                                                        :::      ::::::::   */
-/*   request.cpp                                        :+:      :+:    :+:   */
-/*                                                    +:+ +:+         +:+     */
-/*   By: mkarim <mkarim@student.42.fr>              +#+  +:+       +#+        */
-/*                                                +#+#+#+#+#+   +#+           */
-/*   Created: 2023/02/19 11:54:14 by mkarim            #+#    #+#             */
-/*   Updated: 2023/02/19 18:44:18 by mkarim           ###   ########.fr       */
-/*                                                                            */
-/* ************************************************************************** */
+#include "INCLUDES/request.hpp"
+#include <fstream>
 
-#include "request.hpp"
-#include <sstream>
-
-void    fill_request_line(Request &req, std::string& data)
+int request_handler(ConnectSocket & socket, ConfigFile configfile)
 {
-	req._request_line = data;
-	std::vector<std::string> v = str_split(data, ' ');
-	req._request_method = v[0];
-	req._path_component = v[1];
-	req._http_version   = v[2];
+	int ret;
+	// std::cout << socket._request.request_string << std::endl;
+
+    if(!pars_request(socket._request) || !(ret = possible_error(socket, configfile)))
+    {
+        socket._response.response_string = respond_error("400", configfile);
+		socket._response.respLength = socket._response.response_string.size();
+		return 0;
+    }
+	else if(ret == 2)//this means that there is an error but it's not 400. so it's handlend inside possible error function  
+		return 0;
+    return 1;
 }
 
-void	print(Request &req)
+std::string		read_file(std::string file_name)
 {
-	std::cout << "request method " << req._request_method << std::endl;
-	std::cout << "component      " << req._path_component << std::endl;
-	std::cout << "http version   " << req._http_version << std::endl;
-	
-	std::map<std::string, std::vector<std::string> >::iterator it;
+	std::string	data;
+	std::string	tmp;
 
-	it = req._request_headers.begin();
-	for (; it != req._request_headers.end(); it++)
+	std::ifstream	file(file_name);
+	while (getline(file, tmp))
 	{
-		std::cout << it->first << " ";
-		std::vector<std::string> v = it->second;
-		for (int i = 0; i < v.size(); i++)
-		{
-			std::cout << "|" << v[i] << "|";
-		}
-		std::cout << std::endl;
+		data += tmp;
+		data += "\n";
 	}
-}
-
-void    start_request(std::string request)
-{
-	Request			my_request;
-	std::string		data;
-
-	std::stringstream ss(request);
-
-	int i = 0;
-	getline(ss, data, '\n');
-	fill_request_line(my_request, data);
-	while (getline(ss, data, '\n'))
-	{
-		if (str_trim(data).length() > 0)
-		{
-			std::vector<std::string> line = str_split(data, ':');
-			my_request._request_headers.insert(std::make_pair(line[0], str_split(line[1], ',')));
-		}
-	}
-	print(my_request);
+	return data;
 }
